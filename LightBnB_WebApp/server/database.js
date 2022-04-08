@@ -51,10 +51,6 @@ exports.getUserWithId = getUserWithId;
  * @return {Promise<{}>} A promise to the user.
  */
 const addUser =  function(user) {
-  // const userId = Object.keys(users).length + 1;
-  // user.id = userId;
-  // users[userId] = user;
-  // return Promise.resolve(user);
   return pool 
   .query(`INSERT INTO users (name, email, password)
   VALUES ($1, $2, $3) RETURNING *`, [user.name, user.email, user.password])
@@ -103,8 +99,47 @@ exports.getAllReservations = getAllReservations;
  */
 
 const getAllProperties = (options, limit = 10) => {
+ const queryParams = [];
+ let queryString = `SELECT properties.*, avg(property_reviews.rating) as average_rating
+ FROM properties
+ JOIN property_reviews on properties.id = property_id
+ WHERE 1=1`;
+
+ if (options.city) {
+  queryParams.push(`%${options.city}%`);
+  queryString += ` AND city LIKE $${queryParams.length} `;
+}
+ if (options.owner_id) {
+  queryParams.push(`${options.owner_id}`);
+  queryString += ` AND owner_id = $${queryParams.length} `;
+}
+ if (options.minimum_price_per_night) {
+  queryParams.push(options.minimum_price_per_night * 100);
+  queryString += ` AND cost_per_night >= $${queryParams.length} `;
+}
+if (options.maximum_price_per_night) {
+queryParams.push(options.maximum_price_per_night * 100);
+queryString += ` AND cost_per_night <= $${queryParams.length} `;
+}
+
+queryString += ` GROUP BY properties.id`
+
+ if (options.minimum_rating) {
+  queryParams.push(options.minimum_rating);
+  queryString += ` HAVING avg(property_reviews.rating) >= $${queryParams.length} `;
+}
+
+
+queryParams.push(limit);
+queryString += `
+ORDER BY cost_per_night
+LIMIT $${queryParams.length};
+`;
+ 
+console.log(queryString, queryParams);
+
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
+    .query(queryString, queryParams)
     .then((result) => {
       return result.rows;
     })
@@ -120,9 +155,18 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  // const propertyId = Object.keys(properties).length + 1;
+  // property.id = propertyId;
+  // properties[propertyId] = property;
+  // return Promise.resolve(property);
+  return pool 
+  .query(`INSERT INTO users (name, email, password)
+  VALUES ($1, $2, $3) RETURNING *`, [user.name, user.email, user.password])
+  .then((result) => {
+    return result[0];
+  })
+  .catch((err) => {
+    console.log(err.message);
+  });
 }
 exports.addProperty = addProperty;
